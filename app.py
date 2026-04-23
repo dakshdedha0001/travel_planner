@@ -183,5 +183,5 @@ if st.button("Generate Plan"):
             file_name="travel_plan.pdf",
             mime="application/pdf"
         )
-```
+
 
