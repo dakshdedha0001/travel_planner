@@ -1,21 +1,20 @@
+
 import streamlit as st
 from groq import Groq
 import time
-import os
+import re
 from fpdf import FPDF
-from dotenv import load_dotenv
 
-# ---------------- ENV ----------------
-load_dotenv()
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-client = Groq(api_key=GROQ_API_KEY)
+# ---------------- CONFIG ----------------
 MODEL = "llama-3.1-8b-instant"
+
+# Secure API key (Streamlit Cloud Secrets)
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 
 # ---------------- SAFE GENERATE ----------------
 def safe_generate(prompt):
-    for i in range(3):
+    for _ in range(3):
         try:
             response = client.chat.completions.create(
                 model=MODEL,
@@ -25,7 +24,7 @@ def safe_generate(prompt):
         except Exception:
             time.sleep(2)
 
-    return "⚠️ Server busy, try again later."
+    return "Server busy, try again later."
 
 
 # ---------------- AGENTS ----------------
@@ -42,12 +41,6 @@ Tasks:
 - Provide overview
 - Best time to visit
 - Travel tips
-
-Output:
-Destination:
-Overview:
-Best Time:
-Travel Tips:
 """)
 
 
@@ -64,13 +57,6 @@ Tasks:
 - Nightlife
 - Religious places
 - Relaxation spots
-
-Output:
-Top Places:
-Adventure:
-Nightlife:
-Religious:
-Relaxation:
 """)
 
 
@@ -85,11 +71,6 @@ Tasks:
 - Budget hotels
 - Mid-range hotels
 - Restaurants
-
-Output:
-Budget Hotels:
-Mid Hotels:
-Restaurants:
 """)
 
 
@@ -102,15 +83,7 @@ User Query:
 
 Tasks:
 - Estimate total cost
-- Break into:
-  Stay, Food, Travel, Activities
-
-Output:
-Total Budget:
-Stay:
-Food:
-Travel:
-Activities:
+- Break into Stay, Food, Travel, Activities
 """)
 
 
@@ -137,29 +110,22 @@ Tasks:
 - Create day-wise itinerary
 - Include Morning, Afternoon, Evening
 - Maintain budget
-
-Output:
-
-Day 1:
-Morning:
-Afternoon:
-Evening:
-
-Day 2:
-...
-
-Also include:
-- Hotel suggestion
-- Food suggestions
-- Budget summary
 """)
 
 
 # ---------------- PDF FUNCTION ----------------
 def generate_pdf(text):
+    # remove emojis (fix FPDF crash)
+    text = re.sub(r'[^\x00-\x7F]+', '', text)
+
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=10)
+
+    # Title
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 10, "Travel Itinerary", ln=True)
+
     pdf.set_font("Arial", size=12)
 
     for line in text.split("\n"):
@@ -193,7 +159,7 @@ if st.button("Generate Plan"):
     with st.spinner("Agents working..."):
         result = generate_trip(user_input)
 
-    # UI display
+    # display result
     formatted = result.replace("\n", "<br>")
     st.markdown(f"""
     <div style="
@@ -207,7 +173,7 @@ if st.button("Generate Plan"):
     </div>
     """, unsafe_allow_html=True)
 
-    # ---------------- PDF DOWNLOAD ----------------
+    # PDF download
     pdf_file = generate_pdf(result)
 
     with open(pdf_file, "rb") as f:
@@ -217,3 +183,5 @@ if st.button("Generate Plan"):
             file_name="travel_plan.pdf",
             mime="application/pdf"
         )
+```
+
