@@ -2,9 +2,12 @@ import streamlit as st
 from groq import Groq
 import time
 import os
+from fpdf import FPDF
+from dotenv import load_dotenv
 
-# ---------------- CONFIG ----------------
-GROQ_API_KEY = "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"
+# ---------------- ENV ----------------
+load_dotenv()
+GROQ_API_KEY = os.getenv("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")
 
 client = Groq(api_key=GROQ_API_KEY)
 MODEL = "llama-3.1-8b-instant"
@@ -19,7 +22,7 @@ def safe_generate(prompt):
                 messages=[{"role": "user", "content": prompt}]
             )
             return response.choices[0].message.content
-        except Exception as e:
+        except Exception:
             time.sleep(2)
 
     return "⚠️ Server busy, try again later."
@@ -81,7 +84,7 @@ User Query:
 Tasks:
 - Budget hotels
 - Mid-range hotels
-- Restaurants (veg/non-veg)
+- Restaurants
 
 Output:
 Budget Hotels:
@@ -134,7 +137,6 @@ Tasks:
 - Create day-wise itinerary
 - Include Morning, Afternoon, Evening
 - Maintain budget
-- Logical route planning
 
 Output:
 
@@ -151,6 +153,21 @@ Also include:
 - Food suggestions
 - Budget summary
 """)
+
+
+# ---------------- PDF FUNCTION ----------------
+def generate_pdf(text):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=10)
+    pdf.set_font("Arial", size=12)
+
+    for line in text.split("\n"):
+        pdf.multi_cell(0, 8, line)
+
+    file_path = "itinerary.pdf"
+    pdf.output(file_path)
+    return file_path
 
 
 # ---------------- PIPELINE ----------------
@@ -176,9 +193,8 @@ if st.button("Generate Plan"):
     with st.spinner("Agents working..."):
         result = generate_trip(user_input)
 
-    # fix formatting
+    # UI display
     formatted = result.replace("\n", "<br>")
-
     st.markdown(f"""
     <div style="
         background:#111;
@@ -190,3 +206,14 @@ if st.button("Generate Plan"):
     {formatted}
     </div>
     """, unsafe_allow_html=True)
+
+    # ---------------- PDF DOWNLOAD ----------------
+    pdf_file = generate_pdf(result)
+
+    with open(pdf_file, "rb") as f:
+        st.download_button(
+            label="📄 Download Itinerary as PDF",
+            data=f,
+            file_name="travel_plan.pdf",
+            mime="application/pdf"
+        )
